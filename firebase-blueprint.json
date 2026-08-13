@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "prompts": {
+      "title": "Prompt",
+      "description": "User created AI prompts",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "content": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "version": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "isFavorite": { "type": "boolean" },
+        "isPinned": { "type": "boolean" }
+      },
+      "required": ["id", "title", "content"]
+    },
+    "collections": {
+      "title": "Collection",
+      "description": "User prompt collections",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "promptIds": { "type": "array", "items": { "type": "string" } },
+        "color": { "type": "string" },
+        "icon": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "history": {
+      "title": "History",
+      "description": "Activity history log",
+      "properties": {
+        "id": { "type": "string" },
+        "promptId": { "type": "string" },
+        "promptTitle": { "type": "string" },
+        "action": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "details": { "type": "string" }
+      },
+      "required": ["id", "action", "timestamp"]
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "User settings",
+      "properties": {
+        "id": { "type": "string" },
+        "theme": { "type": "string" },
+        "language": { "type": "string" },
+        "defaultCategory": { "type": "string" },
+        "autoSave": { "type": "boolean" },
+        "aiModel": { "type": "string" }
+      },
+      "required": ["id"]
+    }
+  }
+}
