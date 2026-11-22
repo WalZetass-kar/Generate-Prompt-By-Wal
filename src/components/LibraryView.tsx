@@ -20,16 +20,23 @@ import {
   X,
   ChevronDown,
 } from 'lucide-react';
-import { PromptItem, Collection } from '../types';
+import { PromptItem, Collection, HistoryLog } from '../types';
+import { PromptUsageSparkline } from './PromptUsageSparkline';
 
 interface LibraryViewProps {
   prompts: PromptItem[];
   collections: Collection[];
+  history?: HistoryLog[];
   onSelectPrompt: (prompt: PromptItem) => void;
   onToggleFavorite: (id: string) => void;
   onDeletePrompt: (id: string) => void;
   onBatchDeletePrompts?: (ids: string[]) => void | Promise<void>;
   onBatchMoveToCollection?: (ids: string[], collectionId: string | null) => void | Promise<void>;
+  onRecordPromptUsage?: (
+    prompt: PromptItem,
+    action: HistoryLog['action'],
+    details: string
+  ) => void;
   onOpenNewCollectionModal?: () => void;
   onOpenOptimizerModal: (promptText: string) => void;
   onOpenTranslatorModal: (promptText: string) => void;
@@ -39,11 +46,13 @@ interface LibraryViewProps {
 export const LibraryView: React.FC<LibraryViewProps> = ({
   prompts,
   collections,
+  history = [],
   onSelectPrompt,
   onToggleFavorite,
   onDeletePrompt,
   onBatchDeletePrompts,
   onBatchMoveToCollection,
+  onRecordPromptUsage,
   onOpenNewCollectionModal,
   onOpenOptimizerModal,
   onOpenTranslatorModal,
@@ -189,11 +198,12 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     setConfirmingBatchDelete(false);
   };
 
-  const handleCopy = (id: string, content: string, e: React.MouseEvent) => {
+  const handleCopy = (prompt: PromptItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(content);
-    setCopiedId(id);
+    navigator.clipboard.writeText(prompt.content);
+    setCopiedId(prompt.id);
     setTimeout(() => setCopiedId(null), 2000);
+    onRecordPromptUsage?.(prompt, 'update', 'Prompt disalin untuk digunakan');
   };
 
   const handleExecuteBatchDelete = async () => {
@@ -713,7 +723,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={(e) => handleCopy(prompt.id, prompt.content, e)}
+                        onClick={(e) => handleCopy(prompt, e)}
                         className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
                         title="Copy"
                       >
@@ -726,9 +736,12 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     </div>
                   </div>
 
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
-                    {prompt.title}
-                  </h3>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors line-clamp-1 min-w-0">
+                      {prompt.title}
+                    </h3>
+                    <PromptUsageSparkline prompt={prompt} history={history} />
+                  </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
                     {prompt.description}
                   </p>
@@ -744,6 +757,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        onRecordPromptUsage?.(prompt, 'optimize', 'Prompt dioptimasi dari Library');
                         onOpenOptimizerModal(prompt.content);
                       }}
                       className="hover:text-amber-500 cursor-pointer"
@@ -755,6 +769,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        onRecordPromptUsage?.(prompt, 'translate', 'Prompt diterjemahkan dari Library');
                         onOpenTranslatorModal(prompt.content);
                       }}
                       className="hover:text-blue-500 cursor-pointer"
@@ -829,16 +844,19 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                         </span>
                       )}
                     </div>
-                    <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-                      {prompt.title}
-                    </h3>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate min-w-0">
+                        {prompt.title}
+                      </h3>
+                      <PromptUsageSparkline prompt={prompt} history={history} />
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
-                    onClick={(e) => handleCopy(prompt.id, prompt.content, e)}
+                    onClick={(e) => handleCopy(prompt, e)}
                     className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
                     title="Copy"
                   >

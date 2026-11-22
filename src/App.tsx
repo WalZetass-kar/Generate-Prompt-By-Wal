@@ -313,6 +313,14 @@ export default function App() {
     showNotice(`${ids.length} prompt berhasil dipindahkan ke ${colLabel}.`);
   };
 
+  const handleRecordPromptUsage = (
+    prompt: PromptItem,
+    action: HistoryLog['action'],
+    details: string
+  ) => {
+    void addHistoryEntryToFirestore(userId, prompt.title, action, details, prompt.id);
+  };
+
   const handleToggleFavorite = (id: string) => {
     const target = prompts.find((p) => p.id === id);
     if (!target) return;
@@ -488,11 +496,13 @@ export default function App() {
             <LibraryView
               prompts={prompts}
               collections={collections}
+              history={history}
               onSelectPrompt={handleSelectPrompt}
               onToggleFavorite={handleToggleFavorite}
               onDeletePrompt={handleDeletePrompt}
               onBatchDeletePrompts={handleBatchDeletePrompts}
               onBatchMoveToCollection={handleBatchMovePromptsToCollection}
+              onRecordPromptUsage={handleRecordPromptUsage}
               onOpenNewCollectionModal={() => setIsNewCollectionModalOpen(true)}
               onOpenOptimizerModal={handleOpenOptimizerModal}
               onOpenTranslatorModal={handleOpenTranslatorModal}

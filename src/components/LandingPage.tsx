@@ -43,33 +43,33 @@ const HERO_SCENARIOS: HeroScenario[] = [
     id: 'architecture',
     label: 'Prompt Builder',
     mode: 'Streaming Cepat · 3 Variasi',
-    variables: ['{{nama_produk}}', '{{target_pengguna}}', '{{stack_teknologi}}'],
-    snippet: `[PERAN] Principal Software Architect untuk {{nama_produk}}
-[TUGAS] Rancang arsitektur API, struktur data, dan alur modul
-        untuk {{target_pengguna}} menggunakan {{stack_teknologi}}.
-[BATASAN] Keluarkan spesifikasi teknis siap eksekusi dengan
-          struktur terarah tanpa teks pengantar.`,
+    variables: ['Nama Produk', 'Target Pengguna', 'Stack Teknologi'],
+    snippet: `PERAN: Principal Software Architect untuk aplikasi SaaS analitik
+TUGAS: Rancang arsitektur API, struktur data, dan alur modul
+       untuk tim produk menggunakan React, Node.js, dan PostgreSQL.
+BATASAN: Keluarkan spesifikasi teknis siap eksekusi dengan
+         struktur terarah tanpa teks pengantar.`,
   },
   {
     id: 'prd',
     label: 'PRD Studio',
     mode: 'Dokumen Produk · Template',
-    variables: ['{{fitur_utama}}', '{{metrik_sukses}}'],
-    snippet: `[RINGKASAN PRODUK] Spesifikasi fitur {{fitur_utama}}
-[ALUR PENGGUNA] Langkah utama, skenario batas, dan spesifikasi
-                antarmuka yang terstruktur.
-[KRITERIA SUKSES] Terukur langsung pada {{metrik_sukses}}
-                  dengan urutan prioritas P0 hingga P2.`,
+    variables: ['Fitur Utama', 'Metrik Sukses'],
+    snippet: `RINGKASAN PRODUK: Spesifikasi fitur kolaborasi dokumen real-time
+ALUR PENGGUNA: Langkah utama, skenario batas, dan spesifikasi
+               antarmuka yang terstruktur.
+KRITERIA SUKSES: Terukur langsung pada retensi pengguna aktif
+                 dengan urutan prioritas P0 hingga P2.`,
   },
   {
     id: 'voice',
     label: 'Auto-Fill Suara',
     mode: 'Input Mikrofon · Pengisian Form',
-    variables: ['{{gaya_bahasa}}', '{{audiens}}'],
-    snippet: `[INPUT SUARA] "Buatkan prompt copywriting halaman produk untuk
-              {{audiens}} dengan gaya {{gaya_bahasa}}..."
-[HASIL FORM] Judul, kategori, deskripsi, dan format output
-             terisi otomatis tanpa perlu mengetik panjang.`,
+    variables: ['Gaya Bahasa', 'Audiens'],
+    snippet: `INPUT SUARA: "Buatkan prompt copywriting halaman produk untuk
+             pelaku UMKM dengan gaya santai dan meyakinkan..."
+HASIL FORM: Judul, kategori, deskripsi, dan format output
+            terisi otomatis tanpa perlu mengetik panjang.`,
   },
 ];
 
@@ -256,7 +256,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const previewLines = useMemo(() => {
     if (!activeTemplate) return '';
-    return activeTemplate.templateContent.split('\n').slice(0, 14).join('\n');
+    const valueLookup = new Map<string, string>();
+    activeTemplate.variables.forEach((v) => {
+      const cleanVal =
+        v.defaultValue?.trim() ||
+        v.label?.trim() ||
+        v.name.replace(/_/g, ' ');
+      valueLookup.set(v.name, cleanVal);
+    });
+
+    const cleanedContent = activeTemplate.templateContent
+      .replace(/\{\{\s*([a-zA-Z0-9_-]+)\s*\}\}/g, (_, key: string) => {
+        return valueLookup.get(key) || key.replace(/_/g, ' ');
+      })
+      .replace(/[{}]/g, '');
+
+    return cleanedContent.split('\n').slice(0, 14).join('\n');
   }, [activeTemplate]);
 
   const containerClass = 'w-full max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10';
@@ -500,7 +515,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         {activeScenario.mode}
                       </span>
                       <span className="font-mono text-xs text-emerald-300 tabular-nums">
-                        {activeScenario.variables.length} variabel terdeteksi
+                        {activeScenario.variables.length} parameter siap pakai
                       </span>
                     </div>
                   </div>
@@ -619,7 +634,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         Injeksi Variabel
                       </p>
                       <p className="text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                        Deteksi otomatis sintaks <code className="font-mono">{`{{variabel}}`}</code> menjadi form input.
+                        Deteksi otomatis parameter dinamis menjadi kolom isian siap pakai.
                       </p>
                     </div>
                     <div>
@@ -924,10 +939,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                       <div className="text-xs text-slate-600 dark:text-slate-400">
                         <span className="font-medium text-slate-800 dark:text-slate-200 mr-2">
-                          Variabel otomatis:
+                          Parameter isian:
                         </span>
-                        <span className="font-mono text-emerald-700 dark:text-emerald-400">
-                          {activeTemplate.variables.map((v) => `{{${v.name}}}`).join('  ·  ')}
+                        <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                          {activeTemplate.variables.map((v) => v.label).join('  ·  ')}
                         </span>
                       </div>
 
@@ -1000,7 +1015,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     Isi Variabel &amp; Uji di Playground
                   </h3>
                   <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Setiap placeholder <code className="font-mono text-xs">{`{{variabel}}`}</code> otomatis menjadi kolom isi. Uji hasilnya secara berdampingan di Playground sebelum digunakan.
+                    Setiap parameter dinamis di dalam prompt otomatis menjadi kolom isian praktis. Uji hasilnya secara berdampingan di Playground sebelum digunakan.
                   </p>
                 </div>
               </RevealOnScroll>
