@@ -32,6 +32,8 @@ import {
   syncPromptToFirestore,
   togglePromptFavoriteInFirestore,
   deletePromptFromFirestore,
+  batchDeletePromptsFromFirestore,
+  batchMovePromptsToCollectionInFirestore,
   clearAllPromptsInFirestore,
   syncCollectionToFirestore,
   deleteCollectionFromFirestore,
@@ -264,6 +266,53 @@ export default function App() {
     }
   };
 
+  const handleBatchDeletePrompts = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    setPrompts((prev) => prev.filter((item) => !idSet.has(item.id)));
+    if (selectedPrompt && idSet.has(selectedPrompt.id)) {
+      setSelectedPrompt(null);
+      setIsDetailModalOpen(false);
+    }
+    await batchDeletePromptsFromFirestore(userId, ids);
+    sendRealtimeSync('PROMPT_DELETED', { ids, batch: true });
+    void addHistoryEntryToFirestore(
+      userId,
+      `${ids.length} Prompt Terpilih`,
+      'update',
+      `${ids.length} prompt dihapus secara massal dari library`
+    );
+    showNotice(`${ids.length} prompt berhasil dihapus dari library.`);
+  };
+
+  const handleBatchMovePromptsToCollection = async (
+    ids: string[],
+    collectionId: string | null
+  ) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    const nowIso = new Date().toISOString();
+    setPrompts((prev) =>
+      prev.map((p) =>
+        idSet.has(p.id)
+          ? { ...p, collectionId: collectionId ?? undefined, updatedAt: nowIso }
+          : p
+      )
+    );
+    await batchMovePromptsToCollectionInFirestore(userId, ids, collectionId);
+    sendRealtimeSync('PROMPT_UPDATED', { ids, collectionId, batch: true });
+
+    const targetCol = collectionId ? collections.find((c) => c.id === collectionId) : null;
+    const colLabel = targetCol ? `koleksi "${targetCol.name}"` : 'tanpa koleksi';
+    void addHistoryEntryToFirestore(
+      userId,
+      `${ids.length} Prompt Terpilih`,
+      'update',
+      `${ids.length} prompt dipindahkan ke ${colLabel}`
+    );
+    showNotice(`${ids.length} prompt berhasil dipindahkan ke ${colLabel}.`);
+  };
+
   const handleToggleFavorite = (id: string) => {
     const target = prompts.find((p) => p.id === id);
     if (!target) return;
@@ -442,6 +491,9 @@ export default function App() {
               onSelectPrompt={handleSelectPrompt}
               onToggleFavorite={handleToggleFavorite}
               onDeletePrompt={handleDeletePrompt}
+              onBatchDeletePrompts={handleBatchDeletePrompts}
+              onBatchMoveToCollection={handleBatchMovePromptsToCollection}
+              onOpenNewCollectionModal={() => setIsNewCollectionModalOpen(true)}
               onOpenOptimizerModal={handleOpenOptimizerModal}
               onOpenTranslatorModal={handleOpenTranslatorModal}
               onClearAllPrompts={handleClearAllLibrary}

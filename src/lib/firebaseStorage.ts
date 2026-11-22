@@ -400,6 +400,49 @@ export async function deletePromptFromFirestore(userId: string, id: string): Pro
   }
 }
 
+export async function batchDeletePromptsFromFirestore(
+  userId: string,
+  promptIds: string[]
+): Promise<void> {
+  if (!promptIds.length) return;
+  const path = `users/${userId}/prompts`;
+  try {
+    const refs = promptIds.map((id) => doc(db, 'users', userId, 'prompts', sanitizeDocId(id, 'prompt')));
+    await deleteDocsChunked(refs, 5);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export async function batchMovePromptsToCollectionInFirestore(
+  userId: string,
+  promptIds: string[],
+  collectionId: string | null
+): Promise<void> {
+  if (!promptIds.length) return;
+  const path = `users/${userId}/prompts`;
+  const safeCollectionId = collectionId ? sanitizeDocId(collectionId, 'col') : null;
+  const nowIso = new Date().toISOString();
+  try {
+    const chunkSize = 5;
+    for (let i = 0; i < promptIds.length; i += chunkSize) {
+      const chunk = promptIds.slice(i, i + chunkSize);
+      const batch = writeBatch(db);
+      chunk.forEach((id) => {
+        const ref = doc(db, 'users', userId, 'prompts', sanitizeDocId(id, 'prompt'));
+        batch.update(ref, {
+          collectionId: safeCollectionId,
+          updatedAt: nowIso,
+          serverUpdatedAt: serverTimestamp(),
+        });
+      });
+      await batch.commit();
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
 export async function syncCollectionToFirestore(userId: string, col: Collection): Promise<void> {
   const safeId = sanitizeDocId(col.id, 'col');
   const path = `users/${userId}/collections/${safeId}`;
