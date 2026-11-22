@@ -10,6 +10,7 @@ interface HistoryViewProps {
 
 export const HistoryView: React.FC<HistoryViewProps> = ({ history, onRestoreVersion, onClearAllHistory }) => {
   const [filterAction, setFilterAction] = useState<string>('all');
+  const [confirmingClear, setConfirmingClear] = useState(false);
 
   const getBadgeColor = (action: HistoryLog['action']) => {
     switch (action) {
@@ -27,9 +28,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ history, onRestoreVers
   };
 
   const handleClearHistoryConfirm = () => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus seluruh riwayat aktivitas dari collection/database?')) {
-      onClearAllHistory?.();
-    }
+    onClearAllHistory?.();
+    setConfirmingClear(false);
   };
 
   const filteredHistory = history.filter(
@@ -53,14 +53,34 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ history, onRestoreVers
         {/* Action Controls & Filter Pills */}
         <div className="flex flex-wrap items-center gap-2">
           {history.length > 0 && onClearAllHistory && (
-            <button
-              onClick={handleClearHistoryConfirm}
-              className="px-3.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/50 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Hapus Semua History dari Collection"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Hapus Semua History</span>
-            </button>
+            confirmingClear ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleClearHistoryConfirm}
+                  className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Ya, Hapus Riwayat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingClear(false)}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-medium transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingClear(true)}
+                className="px-3.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/50 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Hapus Semua History dari Collection"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Kosongkan Riwayat</span>
+              </button>
+            )
           )}
 
           <div className="flex items-center gap-1.5 overflow-x-auto py-1">

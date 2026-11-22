@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Globe, Copy, Check, RefreshCw, Languages } from 'lucide-react';
+import { getCustomApiKeys } from '../../lib/storage';
 
 interface PromptTranslatorModalProps {
   isOpen: boolean;
@@ -27,7 +28,7 @@ export const PromptTranslatorModal: React.FC<PromptTranslatorModalProps> = ({
       const res = await fetch('/api/gemini/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ promptText, targetLanguage }),
+        body: JSON.stringify({ promptText, targetLanguage, customKeys: getCustomApiKeys() }),
       });
       const data = await res.json();
       if (data.success && data.translatedPrompt) {

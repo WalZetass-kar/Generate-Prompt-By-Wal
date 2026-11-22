@@ -57,61 +57,84 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
         </button>
       </div>
 
-      {/* Collection Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {collections.map((col) => {
-          const count = prompts.filter((p) => p.collectionId === col.id).length;
-
-          return (
-            <div
-              key={col.id}
-              onClick={() => onSelectCollection(col.id)}
-              className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer shadow-2xs flex flex-col justify-between group"
+      {/* Collection Cards Grid or Empty State */}
+      {collections.length === 0 ? (
+        <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+          <FolderKanban className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              Belum ada folder collection.
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Buat folder baru untuk mengelompokkan prompt berdasarkan proyek atau kebutuhan kerja Anda.
+            </p>
+          </div>
+          <div className="pt-1">
+            <button
+              onClick={onOpenNewCollectionModal}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors cursor-pointer"
             >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-                    {getIcon(col.iconName)}
+              <Plus className="w-3.5 h-3.5" />
+              <span>Buat Collection Pertama</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {collections.map((col) => {
+            const count = prompts.filter((p) => p.collectionId === col.id).length;
+
+            return (
+              <div
+                key={col.id}
+                onClick={() => onSelectCollection(col.id)}
+                className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                      {getIcon(col.iconName)}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+                        {count} prompt
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteCollection(col.id);
+                        }}
+                        className="p-1 text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
+                        title="Hapus Collection"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                      {count} Prompts
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteCollection(col.id);
-                      }}
-                      className="p-1 text-slate-400 hover:text-red-500 transition-colors"
-                      title="Hapus Collection"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 transition-colors">
+                    {col.name}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    {col.description}
+                  </p>
                 </div>
 
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-red-600 transition-colors">
-                  {col.name}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  {col.description}
-                </p>
+                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                  <span>Folder Proyek</span>
+                  <span>
+                    {new Date(col.createdAt).toLocaleDateString('id-ID', {
+                      day: 'numeric',
+                      month: 'short',
+                    })}
+                  </span>
+                </div>
               </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-400">
-                <span>Folder Proyek</span>
-                <span>
-                  {new Date(col.createdAt).toLocaleDateString('id-ID', {
-                    day: 'numeric',
-                    month: 'short',
-                  })}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

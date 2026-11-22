@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Command, BookOpen, FolderKanban, Sparkles, X, ArrowRight, CornerDownLeft } from 'lucide-react';
+import { Search, Command, BookOpen, FolderKanban, Sparkles, X, ArrowRight, CornerDownLeft, Film, FileText } from 'lucide-react';
 import { PromptItem, Collection, ViewMode } from '../types';
 
 interface CommandPaletteProps {
@@ -49,7 +49,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   );
 
   const navigationActions = [
-    { id: 'nav-generate', title: 'Generate Prompt Baru', view: 'generate' as ViewMode, icon: Sparkles },
+    { id: 'nav-generate', title: 'Generate Master Prompt', view: 'generate' as ViewMode, icon: Sparkles },
+    { id: 'nav-prd', title: 'PRD Studio (Product Requirement Document)', view: 'prd' as ViewMode, icon: FileText },
+    { id: 'nav-media-studio', title: 'AI Media Studio (Generate Gambar & Video)', view: 'media-studio' as ViewMode, icon: Film },
     { id: 'nav-library', title: 'Buka Library', view: 'library' as ViewMode, icon: BookOpen },
     { id: 'nav-collections', title: 'Lihat Collections', view: 'collections' as ViewMode, icon: FolderKanban },
   ].filter((a) => a.title.toLowerCase().includes(query.toLowerCase()));

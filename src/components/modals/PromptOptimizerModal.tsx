@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Zap, ArrowRight, Check, RefreshCw, Sparkles } from 'lucide-react';
+import { getCustomApiKeys } from '../../lib/storage';
 
 interface PromptOptimizerModalProps {
   isOpen: boolean;
@@ -31,7 +32,7 @@ export const PromptOptimizerModal: React.FC<PromptOptimizerModalProps> = ({
       const res = await fetch('/api/gemini/optimize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ promptText, goal }),
+        body: JSON.stringify({ promptText, goal, customKeys: getCustomApiKeys() }),
       });
       const data = await res.json();
       if (data.success && data.data) {

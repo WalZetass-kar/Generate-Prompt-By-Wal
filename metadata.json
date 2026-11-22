@@ -1,6 +1,6 @@
 {
   "name": "generate prompt by walzetass",
-  "description": "Workspace pribadi modern untuk membuat, mengelola, mengoptimalkan, dan mengorganisir prompt AI secara profesional.",
-  "requestFramePermissions": [],
+  "description": "Workspace terpadu untuk membuat, mengoptimalkan, dan mengorganisir prompt AI profesional, serta AI Media Studio untuk generate gambar resolusi tinggi (Imagen 3) dan video sinematik (Google Veo).",
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

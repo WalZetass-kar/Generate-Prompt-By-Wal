@@ -1,19 +1,30 @@
-import React, { useState } from 'react';
-import { FlaskConical, Play, Trophy, Copy, Check, Plus, Trash2, Sparkles, RefreshCw } from 'lucide-react';
-import { PlaygroundItem } from '../types';
+import React, { useState, useEffect } from 'react';
+import { FlaskConical, Play, Trophy, Copy, Check, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { PlaygroundItem, UserSettings, AIProviderId } from '../types';
+import { getCustomApiKeys } from '../lib/storage';
 
-export const PlaygroundView: React.FC = () => {
-  const [sampleInput, setSampleInput] = useState(
-    'Buatkan modul login user dengan email dan password.'
-  );
+interface PlaygroundViewProps {
+  settings?: UserSettings;
+  initialPrompt?: string;
+}
 
-  const [items, setItems] = useState<PlaygroundItem[]>([
+interface PlaygroundItemExtended extends PlaygroundItem {
+  provider?: AIProviderId;
+  providerUsed?: string;
+  modelUsed?: string;
+  isFallback?: boolean;
+}
+
+export const PlaygroundView: React.FC<PlaygroundViewProps> = ({ settings, initialPrompt }) => {
+  const [sampleInput, setSampleInput] = useState('');
+
+  const [items, setItems] = useState<PlaygroundItemExtended[]>([
     {
       id: 'p-1',
-      title: 'Prompt Variant A (Direct Instruction)',
-      model: 'Gemini 3.6 Flash',
-      promptText:
-        'Buatkan fungsi login user untuk Laravel 11. Return JSON response dan validasi input.',
+      title: 'Varian A',
+      model: 'gemini-4-hydrogen',
+      provider: 'gemini',
+      promptText: '',
       sampleInput: '',
       output: '',
       loading: false,
@@ -21,22 +32,25 @@ export const PlaygroundView: React.FC = () => {
       tokens: null,
       isWinner: false,
     },
-    {
-      id: 'p-2',
-      title: 'Prompt Variant B (Structured Persona & Security)',
-      model: 'Gemini 3.6 Flash',
-      promptText:
-        'Anda adalah Senior Laravel Architect. Buatkan Sanctum Auth Controller lengkap dengan Rate Limiting, Hash Password Check, DTO, dan JSON Resource.',
-      sampleInput: '',
-      output: '',
-      loading: false,
-      executionTimeMs: null,
-      tokens: null,
-      isWinner: true,
-    },
   ]);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialPrompt && initialPrompt.trim()) {
+      setItems((prev) =>
+        prev.map((item, idx) =>
+          idx === 0
+            ? {
+                ...item,
+                title: 'Prompt dari Workspace (Live)',
+                promptText: initialPrompt,
+              }
+            : item
+        )
+      );
+    }
+  }, [initialPrompt]);
 
   const handleRunTest = async (id: string) => {
     setItems((prev) =>
@@ -53,6 +67,9 @@ export const PlaygroundView: React.FC = () => {
         body: JSON.stringify({
           promptText: item?.promptText || '',
           sampleInput,
+          provider: item?.provider || 'gemini',
+          model: item?.model || 'gemini-4-hydrogen',
+          customKeys: getCustomApiKeys() || settings?.customKeys,
         }),
       });
       const data = await res.json();
@@ -68,6 +85,9 @@ export const PlaygroundView: React.FC = () => {
                 output: data.output || 'No output returned.',
                 executionTimeMs: duration,
                 tokens: Math.round((data.output?.length || 0) / 4),
+                providerUsed: data.providerUsed,
+                modelUsed: data.modelUsed,
+                isFallback: data.isFallback,
               }
             : i
         )
@@ -93,10 +113,11 @@ export const PlaygroundView: React.FC = () => {
 
   const handleAddVariant = () => {
     if (items.length >= 3) return;
-    const newVariant: PlaygroundItem = {
+    const newVariant: PlaygroundItemExtended = {
       id: `p-${Date.now()}`,
       title: `Prompt Variant ${String.fromCharCode(65 + items.length)}`,
-      model: 'Gemini 3.6 Flash',
+      model: 'gemini-4-hydrogen',
+      provider: 'gemini',
       promptText: '',
       sampleInput: '',
       output: '',
@@ -135,10 +156,10 @@ export const PlaygroundView: React.FC = () => {
         <div>
           <h2 className="text-lg sm:text-xl font-heading font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <FlaskConical className="w-5 h-5 text-emerald-600" />
-            <span>AI Playground & Prompt Comparator</span>
+            <span>AI Playground &amp; Multi-Model Comparator</span>
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Uji dan bandingkan variasi prompt secara langsung untuk menemukan formula hasil terbaik.
+            Uji dan bandingkan variasi prompt serta model AI secara langsung dengan fallback cerdas ke Gemini.
           </p>
         </div>
 
@@ -146,7 +167,7 @@ export const PlaygroundView: React.FC = () => {
           {items.length < 3 && (
             <button
               onClick={handleAddVariant}
-              className="flex-1 sm:flex-none px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+              className="flex-1 sm:flex-none px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Tambah Varian</span>
@@ -156,7 +177,7 @@ export const PlaygroundView: React.FC = () => {
           <button
             onClick={handleRunAll}
             id="playground-run-all-btn"
-            className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+            className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
             <Play className="w-3.5 h-3.5 fill-white" />
             <span>Jalankan Semua Variasi</span>
@@ -206,7 +227,7 @@ export const PlaygroundView: React.FC = () => {
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => handleSetWinner(item.id)}
-                  className={`p-1 rounded-md transition-colors ${
+                  className={`p-1 rounded-md transition-colors cursor-pointer ${
                     item.isWinner ? 'text-amber-500' : 'text-slate-300 hover:text-amber-500'
                   }`}
                   title="Tandai sebagai Versi Pemenang"
@@ -217,12 +238,56 @@ export const PlaygroundView: React.FC = () => {
                 {items.length > 1 && (
                   <button
                     onClick={() => handleDeleteVariant(item.id)}
-                    className="p-1 text-slate-300 hover:text-red-500"
+                    className="p-1 text-slate-300 hover:text-red-500 cursor-pointer"
                     title="Hapus Varian"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
+              </div>
+            </div>
+
+            {/* Model & Provider Selector */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-400 mb-0.5 uppercase tracking-wider">
+                  Provider AI
+                </label>
+                <select
+                  value={item.provider || 'gemini'}
+                  onChange={(e) => {
+                    const val = e.target.value as AIProviderId;
+                    setItems((prev) =>
+                      prev.map((i) => (i.id === item.id ? { ...i, provider: val } : i))
+                    );
+                  }}
+                  className="w-full px-2 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-800 dark:text-slate-200 cursor-pointer"
+                >
+                  <option value="gemini">Gemini (Default)</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Claude</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="groq">Groq</option>
+                  <option value="openrouter">OpenRouter</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-400 mb-0.5 uppercase tracking-wider">
+                  Target Model
+                </label>
+                <input
+                  type="text"
+                  value={item.model || 'gemini-4-hydrogen'}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setItems((prev) =>
+                      prev.map((i) => (i.id === item.id ? { ...i, model: val } : i))
+                    );
+                  }}
+                  placeholder="Model name..."
+                  className="w-full px-2 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-800 dark:text-slate-200 font-mono"
+                />
               </div>
             </div>
 
@@ -249,7 +314,7 @@ export const PlaygroundView: React.FC = () => {
             <button
               onClick={() => handleRunTest(item.id)}
               disabled={item.loading}
-              className="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+              className="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
             >
               {item.loading ? (
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -262,7 +327,14 @@ export const PlaygroundView: React.FC = () => {
             {/* Output Display */}
             <div>
               <div className="flex items-center justify-between mb-1 text-[10px] text-slate-400">
-                <span>AI Response Output</span>
+                <span className="flex items-center gap-1">
+                  <span>Output AI</span>
+                  {item.isFallback && (
+                    <span className="text-amber-500 font-semibold text-[9px] bg-amber-500/10 px-1 rounded">
+                      Fallback Gemini
+                    </span>
+                  )}
+                </span>
                 {item.executionTimeMs && (
                   <span>
                     {item.executionTimeMs}ms • ~{item.tokens} tokens
@@ -275,19 +347,21 @@ export const PlaygroundView: React.FC = () => {
                   <>
                     <button
                       onClick={() => handleCopy(item.id, item.output)}
-                      className="absolute top-2 right-2 p-1 rounded bg-slate-800 text-slate-300 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 p-1 rounded bg-slate-800 text-slate-300 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                     >
                       {copiedId === item.id ? (
-                        <Check className="w-3 h-3 text-emerald-400" />
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
                       ) : (
-                        <Copy className="w-3 h-3" />
+                        <Copy className="w-3.5 h-3.5" />
                       )}
                     </button>
-                    <pre className="whitespace-pre-wrap">{item.output}</pre>
+                    <pre className="text-slate-200 whitespace-pre-wrap font-sans text-xs">
+                      {item.output}
+                    </pre>
                   </>
                 ) : (
-                  <span className="text-slate-500 italic">
-                    Belum ada hasil uji coba. Klik "Uji Varian Ini" di atas.
+                  <span className="text-slate-500 italic text-[11px]">
+                    Belum ada hasil eksekusi. Klik &apos;Uji Varian Ini&apos; untuk menjalankan.
                   </span>
                 )}
               </div>

@@ -1,62 +1,162 @@
 {
   "entities": {
-    "prompts": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile and onboarding seed state",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "photoURL": { "type": "string", "maxLength": 1024 },
+        "seeded": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "photoURL", "seeded", "createdAt", "updatedAt"]
+    },
+    "Prompt": {
       "title": "Prompt",
-      "description": "User created AI prompts",
+      "description": "User created master AI prompt or PRD document",
+      "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "title": { "type": "string" },
-        "description": { "type": "string" },
-        "category": { "type": "string" },
-        "content": { "type": "string" },
-        "tags": { "type": "array", "items": { "type": "string" } },
-        "version": { "type": "number" },
-        "createdAt": { "type": "string" },
-        "updatedAt": { "type": "string" },
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "category": { "type": "string", "maxLength": 100 },
+        "subCategory": { "type": "string", "maxLength": 100 },
+        "aiModel": { "type": "string", "maxLength": 120 },
+        "language": { "type": "string", "maxLength": 60 },
+        "programmingLanguage": { "type": "string", "maxLength": 120 },
+        "framework": { "type": "string", "maxLength": 120 },
+        "database": { "type": "string", "maxLength": 120 },
+        "platform": { "type": "string", "maxLength": 160 },
+        "stylePrompt": { "type": "string", "maxLength": 160 },
+        "designTheme": { "type": "string", "maxLength": 160 },
+        "tone": { "type": "string", "maxLength": 120 },
+        "outputLanguage": { "type": "string", "maxLength": 60 },
+        "creativity": { "type": "string", "maxLength": 80 },
+        "length": { "type": "string", "maxLength": 120 },
+        "targetAudience": { "type": "string", "maxLength": 240 },
+        "description": { "type": "string", "maxLength": 4000 },
+        "additionalReqs": { "type": "string", "maxLength": 4000 },
+        "negativePrompt": { "type": "string", "maxLength": 2000 },
+        "expectedOutput": { "type": "string", "maxLength": 3000 },
+        "reference": { "type": "string", "maxLength": 4000 },
+        "content": { "type": "string", "minLength": 1, "maxLength": 120000 },
         "isFavorite": { "type": "boolean" },
-        "isPinned": { "type": "boolean" }
+        "isPinned": { "type": "boolean" },
+        "collectionId": { "type": "string", "maxLength": 128 },
+        "tags": { "type": "array" },
+        "score": { "type": "number" },
+        "scoreDetail": { "type": "object" },
+        "qualityControl": { "type": "object" },
+        "versions": { "type": "array" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 },
+        "serverCreatedAt": { "type": "string", "format": "date-time" },
+        "serverUpdatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "title", "content"]
+      "required": ["id", "ownerId", "title", "category", "content", "isFavorite", "isPinned", "tags", "versions", "createdAt", "updatedAt", "serverCreatedAt", "serverUpdatedAt"]
     },
-    "collections": {
+    "Collection": {
       "title": "Collection",
-      "description": "User prompt collections",
+      "description": "User prompt collection folder",
+      "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "description": { "type": "string" },
-        "promptIds": { "type": "array", "items": { "type": "string" } },
-        "color": { "type": "string" },
-        "icon": { "type": "string" },
-        "createdAt": { "type": "string" }
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 500 },
+        "color": { "type": "string", "maxLength": 64 },
+        "iconName": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "serverCreatedAt": { "type": "string", "format": "date-time" },
+        "serverUpdatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "name"]
+      "required": ["id", "ownerId", "name", "description", "color", "iconName", "createdAt", "serverCreatedAt", "serverUpdatedAt"]
     },
-    "history": {
-      "title": "History",
-      "description": "Activity history log",
+    "HistoryLog": {
+      "title": "HistoryLog",
+      "description": "User workspace activity history log",
+      "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "promptId": { "type": "string" },
-        "promptTitle": { "type": "string" },
-        "action": { "type": "string" },
-        "timestamp": { "type": "string" },
-        "details": { "type": "string" }
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "promptId": { "type": "string", "maxLength": 128 },
+        "promptTitle": { "type": "string", "maxLength": 300 },
+        "action": { "type": "string", "enum": ["create", "update", "optimize", "translate", "restore"] },
+        "timestamp": { "type": "string", "maxLength": 64 },
+        "details": { "type": "string", "maxLength": 1000 },
+        "serverCreatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "action", "timestamp"]
+      "required": ["id", "ownerId", "promptTitle", "action", "timestamp", "details", "serverCreatedAt"]
     },
-    "settings": {
-      "title": "Settings",
-      "description": "User settings",
+    "WorkspaceDocument": {
+      "title": "WorkspaceDocument",
+      "description": "Cloud-synced settings, generator drafts, PRD drafts, and chat quick-setup preferences",
+      "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "theme": { "type": "string" },
-        "language": { "type": "string" },
-        "defaultCategory": { "type": "string" },
-        "autoSave": { "type": "boolean" },
-        "aiModel": { "type": "string" }
+        "docType": { "type": "string", "enum": ["settings", "generator_draft", "prd_draft", "chat_preferences"] },
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "payload": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id"]
+      "required": ["docType", "ownerId", "payload", "createdAt", "updatedAt"]
+    },
+    "MediaAsset": {
+      "title": "MediaAsset",
+      "description": "Cloud-synced AI Media Studio generated image or video metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "mediaType": { "type": "string", "enum": ["image", "video"] },
+        "prompt": { "type": "string", "maxLength": 4000 },
+        "enhancedPrompt": { "type": "string", "maxLength": 6000 },
+        "negativePrompt": { "type": "string", "maxLength": 2000 },
+        "aspectRatio": { "type": "string", "maxLength": 16 },
+        "stylePreset": { "type": "string", "maxLength": 120 },
+        "cameraMovement": { "type": "string", "maxLength": 200 },
+        "lightingStyle": { "type": "string", "maxLength": 200 },
+        "resolution": { "type": "string", "maxLength": 16 },
+        "mediaUrl": { "type": "string", "maxLength": 600000 },
+        "thumbnailUrl": { "type": "string", "maxLength": 200000 },
+        "operationName": { "type": "string", "maxLength": 300 },
+        "status": { "type": "string", "maxLength": 32 },
+        "model": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "serverCreatedAt": { "type": "string", "format": "date-time" },
+        "serverUpdatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "mediaType", "prompt", "aspectRatio", "model", "createdAt", "serverCreatedAt", "serverUpdatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profile and workspace seed marker owned exclusively by {userId}"
+    },
+    "/users/{userId}/prompts/{promptId}": {
+      "schema": { "$ref": "#/entities/Prompt" },
+      "description": "User-owned prompt library and PRD documents"
+    },
+    "/users/{userId}/collections/{collectionId}": {
+      "schema": { "$ref": "#/entities/Collection" },
+      "description": "User-owned prompt collections"
+    },
+    "/users/{userId}/history/{historyId}": {
+      "schema": { "$ref": "#/entities/HistoryLog" },
+      "description": "User-owned prompt activity history logs"
+    },
+    "/users/{userId}/workspace/{docId}": {
+      "schema": { "$ref": "#/entities/WorkspaceDocument" },
+      "description": "User-owned cloud workspace state: settings, generator_draft, prd_draft, chat_preferences"
+    },
+    "/users/{userId}/media/{mediaId}": {
+      "schema": { "$ref": "#/entities/MediaAsset" },
+      "description": "User-owned Media Studio generated image and video records"
     }
   }
 }

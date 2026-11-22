@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { TopNav } from './components/TopNav';
 import { CommandPalette } from './components/CommandPalette';
 import { DashboardView } from './components/DashboardView';
 import { GenerateView } from './components/GenerateView';
+import { PRDView } from './components/PRDView';
+import { MediaStudioView } from './components/MediaStudioView';
 import { LibraryView } from './components/LibraryView';
 import { CollectionsView } from './components/CollectionsView';
 import { PlaygroundView } from './components/PlaygroundView';
@@ -11,6 +13,7 @@ import { HistoryView } from './components/HistoryView';
 import { FavoritesView } from './components/FavoritesView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { SettingsView } from './components/SettingsView';
+import { LandingPage } from './components/LandingPage';
 
 import { PromptScoreModal } from './components/modals/PromptScoreModal';
 import { PromptOptimizerModal } from './components/modals/PromptOptimizerModal';
@@ -19,152 +22,56 @@ import { ExportImportModal } from './components/modals/ExportImportModal';
 import { NewCollectionModal } from './components/modals/NewCollectionModal';
 import { PromptDetailModal } from './components/modals/PromptDetailModal';
 import { GeminiChatDrawer } from './components/GeminiChatDrawer';
-import { Sparkles, Bot } from 'lucide-react';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { Bot, AlertCircle, X } from 'lucide-react';
 
-import {
-  getStoredPrompts,
-  saveStoredPrompts,
-  clearStoredPrompts,
-  getStoredCollections,
-  saveStoredCollections,
-  clearStoredCollections,
-  getStoredHistory,
-  saveStoredHistory,
-  clearStoredHistory,
-  getStoredSettings,
-  saveStoredSettings,
-  addHistoryEntry,
-} from './lib/storage';
+import { setRuntimeCustomApiKeys } from './lib/storage';
+import { DEFAULT_SETTINGS } from './data/initialData';
 
 import {
   syncPromptToFirestore,
+  togglePromptFavoriteInFirestore,
   deletePromptFromFirestore,
   clearAllPromptsInFirestore,
   syncCollectionToFirestore,
   deleteCollectionFromFirestore,
   clearAllCollectionsInFirestore,
   syncSettingsToFirestore,
+  addHistoryEntryToFirestore,
   subscribeToPromptsRealtime,
   subscribeToCollectionsRealtime,
   subscribeToHistoryRealtime,
   subscribeToSettingsRealtime,
-  seedFirestoreIfEmpty,
   clearAllHistoryInFirestore,
+  clearAllWorkspaceDataInFirestore,
 } from './lib/firebaseStorage';
 
 import { ViewMode, PromptItem, Collection, HistoryLog, UserSettings } from './types';
 import { useRealtime } from './context/RealtimeContext';
+import { useAuth } from './context/AuthContext';
 
 export default function App() {
-  const { sendRealtimeSync, onRealtimeMessage } = useRealtime();
+  const { user, authReady, profileReady } = useAuth();
+  const { sendRealtimeSync } = useRealtime();
 
-  // State
+  // Navigation State
+  const [showLandingPage, setShowLandingPage] = useState(true);
+  const prevSignedInRef = useRef<boolean | null>(null);
   const [currentView, setCurrentView] = useState<ViewMode>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
-  // Data State
-  const [prompts, setPrompts] = useState<PromptItem[]>(() => getStoredPrompts());
-  const [collections, setCollections] = useState<Collection[]>(() => getStoredCollections());
-  const [history, setHistory] = useState<HistoryLog[]>(() => getStoredHistory());
-  const [settings, setSettings] = useState<UserSettings>(() => getStoredSettings());
-
-  const handleClearAllHistory = async () => {
-    setHistory([]);
-    clearStoredHistory();
-    await clearAllHistoryInFirestore();
-    sendRealtimeSync('UPDATE_PROMPTS', { historyCleared: true });
-  };
-
-  const handleClearAllLibrary = async () => {
-    setPrompts([]);
-    setCollections([]);
-    clearStoredPrompts();
-    clearStoredCollections();
-    await clearAllPromptsInFirestore();
-    await clearAllCollectionsInFirestore();
-    sendRealtimeSync('UPDATE_PROMPTS', { libraryCleared: true });
-  };
-
-  // Firestore Real-Time Database Listener & Seed Initial Data
-  useEffect(() => {
-    seedFirestoreIfEmpty();
-
-    const unsubPrompts = subscribeToPromptsRealtime((remotePrompts) => {
-      setPrompts(remotePrompts);
-      saveStoredPrompts(remotePrompts);
-    });
-
-    const unsubCollections = subscribeToCollectionsRealtime((remoteCols) => {
-      setCollections(remoteCols);
-      saveStoredCollections(remoteCols);
-    });
-
-    const unsubHistory = subscribeToHistoryRealtime((remoteHist) => {
-      setHistory(remoteHist);
-      saveStoredHistory(remoteHist);
-    });
-
-    const unsubSettings = subscribeToSettingsRealtime((remoteSettings) => {
-      setSettings(remoteSettings);
-      saveStoredSettings(remoteSettings);
-    });
-
-    return () => {
-      unsubPrompts();
-      unsubCollections();
-      unsubHistory();
-      unsubSettings();
-    };
-  }, []);
-
-  // Listen for real-time messages from other connected sessions
-  useEffect(() => {
-    const unsubscribe = onRealtimeMessage((data) => {
-      if (data.type === 'PROMPT_CREATED' && data.prompt) {
-        setPrompts((prev) => {
-          if (prev.some((p) => p.id === data.prompt.id)) return prev;
-          const updated = [data.prompt, ...prev];
-          saveStoredPrompts(updated);
-          return updated;
-        });
-      } else if (data.type === 'PROMPT_UPDATED' && data.prompt) {
-        setPrompts((prev) => {
-          const updated = prev.map((p) => (p.id === data.prompt.id ? data.prompt : p));
-          saveStoredPrompts(updated);
-          return updated;
-        });
-      } else if (data.type === 'PROMPT_DELETED' && data.id) {
-        setPrompts((prev) => {
-          const updated = prev.filter((p) => p.id !== data.id);
-          saveStoredPrompts(updated);
-          return updated;
-        });
-      } else if (data.type === 'PROMPT_FAVORITED' && data.id) {
-        setPrompts((prev) => {
-          const updated = prev.map((p) => (p.id === data.id ? { ...p, isFavorite: !p.isFavorite } : p));
-          saveStoredPrompts(updated);
-          return updated;
-        });
-      } else if (data.type === 'COLLECTION_CREATED' && data.collection) {
-        setCollections((prev) => {
-          if (prev.some((c) => c.id === data.collection.id)) return prev;
-          const updated = [data.collection, ...prev];
-          saveStoredCollections(updated);
-          return updated;
-        });
-      } else if (data.type === 'COLLECTION_DELETED' && data.id) {
-        setCollections((prev) => {
-          const updated = prev.filter((c) => c.id !== data.id);
-          saveStoredCollections(updated);
-          return updated;
-        });
-      }
-    });
-
-    return () => unsubscribe();
-  }, [onRealtimeMessage]);
+  // Cloud-Backed Data State (100% Firebase Firestore, Zero localStorage)
+  const [prompts, setPrompts] = useState<PromptItem[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [history, setHistory] = useState<HistoryLog[]>([]);
+  const [settings, setSettings] = useState<UserSettings>({
+    ...DEFAULT_SETTINGS,
+    defaultModel: 'gemini-4-hydrogen',
+  });
+  const [playgroundDraftPrompt, setPlaygroundDraftPrompt] = useState<string>('');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Modal State
   const [isScoreModalOpen, setIsScoreModalOpen] = useState(false);
@@ -179,6 +86,60 @@ export default function App() {
   const [modalPromptText, setModalPromptText] = useState('');
   const [modalPromptTitle, setModalPromptTitle] = useState('');
   const [selectedPrompt, setSelectedPrompt] = useState<PromptItem | null>(null);
+
+  const showNotice = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage((prev) => (prev === msg ? null : prev)), 4000);
+  };
+
+  // Sync in-memory custom API keys cache from Firestore settings
+  useEffect(() => {
+    setRuntimeCustomApiKeys(settings.customKeys);
+  }, [settings.customKeys]);
+
+  // Reset workspace state cleanly when user logs out
+  useEffect(() => {
+    if (!user) {
+      setPrompts([]);
+      setCollections([]);
+      setHistory([]);
+      setSettings({ ...DEFAULT_SETTINGS, defaultModel: 'gemini-4-hydrogen' });
+      setRuntimeCustomApiKeys(undefined);
+      setSelectedPrompt(null);
+      setIsDetailModalOpen(false);
+    }
+  }, [user]);
+
+  // Firestore Real-Time Subscriptions strictly gated on authenticated user + profileReady
+  useEffect(() => {
+    if (!authReady || !profileReady || !user) {
+      return;
+    }
+
+    const uid = user.uid;
+    const unsubPrompts = subscribeToPromptsRealtime(uid, (remotePrompts) => {
+      setPrompts(remotePrompts);
+    });
+
+    const unsubCollections = subscribeToCollectionsRealtime(uid, (remoteCols) => {
+      setCollections(remoteCols);
+    });
+
+    const unsubHistory = subscribeToHistoryRealtime(uid, (remoteHist) => {
+      setHistory(remoteHist);
+    });
+
+    const unsubSettings = subscribeToSettingsRealtime(uid, (remoteSettings) => {
+      setSettings(remoteSettings);
+    });
+
+    return () => {
+      unsubPrompts();
+      unsubCollections();
+      unsubHistory();
+      unsubSettings();
+    };
+  }, [authReady, profileReady, user]);
 
   // Dark Mode Class Sync
   useEffect(() => {
@@ -201,90 +162,133 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Save Handlers
+  // Automatically enter workspace when a signed-out user completes Google Sign-In
+  useEffect(() => {
+    if (!authReady) return;
+    const isNowSignedIn = Boolean(user && profileReady);
+    if (prevSignedInRef.current === false && isNowSignedIn) {
+      setShowLandingPage(false);
+    }
+    if (!user) {
+      setShowLandingPage(true);
+    }
+    prevSignedInRef.current = Boolean(user);
+  }, [authReady, user, profileReady]);
+
+  // Show Landing Page when unauthenticated or when user visits Landing Page
+  if (!authReady || !user || !profileReady || showLandingPage) {
+    return (
+      <LandingPage
+        theme={settings.theme}
+        onToggleTheme={() => {
+          const nextTheme = settings.theme === 'light' ? 'dark' : 'light';
+          if (user && profileReady) {
+            const nextSettings: UserSettings = { ...settings, theme: nextTheme };
+            setSettings(nextSettings);
+            void syncSettingsToFirestore(user.uid, nextSettings);
+          } else {
+            setSettings((prev) => ({ ...prev, theme: nextTheme }));
+          }
+        }}
+        onEnterWorkspace={(targetView) => {
+          if (targetView) {
+            setCurrentView(targetView);
+          }
+          setShowLandingPage(false);
+        }}
+      />
+    );
+  }
+
+  const userId = user.uid;
+
+  const handleClearAllHistory = async () => {
+    setHistory([]);
+    await clearAllHistoryInFirestore(userId);
+    sendRealtimeSync('UPDATE_PROMPTS', { historyCleared: true });
+  };
+
+  const handleClearAllLibrary = async () => {
+    setPrompts([]);
+    setCollections([]);
+    await clearAllPromptsInFirestore(userId);
+    await clearAllCollectionsInFirestore(userId);
+    sendRealtimeSync('UPDATE_PROMPTS', { libraryCleared: true });
+  };
+
+  const handleClearAllWorkspaceData = async () => {
+    setPrompts([]);
+    setCollections([]);
+    setHistory([]);
+    setPlaygroundDraftPrompt('');
+    await clearAllWorkspaceDataInFirestore(userId);
+    sendRealtimeSync('UPDATE_PROMPTS', { workspaceCleared: true });
+    showNotice('Seluruh data workspace berhasil dikosongkan. Template bawaan tetap tersedia.');
+  };
+
+  // Cloud CRUD Handlers
   const handleSavePrompt = (newPrompt: PromptItem) => {
-    const updated = [newPrompt, ...prompts];
-    setPrompts(updated);
-    saveStoredPrompts(updated);
-    syncPromptToFirestore(newPrompt);
-
-    sendRealtimeSync('PROMPT_CREATED', { prompt: newPrompt, title: newPrompt.title });
-
-    const newHist = addHistoryEntry(
+    setPrompts((prev) => [newPrompt, ...prev.filter((p) => p.id !== newPrompt.id)]);
+    void syncPromptToFirestore(userId, newPrompt);
+    sendRealtimeSync('PROMPT_CREATED', { promptId: newPrompt.id, title: newPrompt.title });
+    void addHistoryEntryToFirestore(
+      userId,
       newPrompt.title,
       'create',
       `Prompt baru dibuat dan disimpan di ${newPrompt.category}`,
       newPrompt.id
     );
-    setHistory((prev) => [newHist, ...prev]);
   };
 
   const handleUpdatePrompt = (updatedPrompt: PromptItem) => {
-    const updated = prompts.map((p) => (p.id === updatedPrompt.id ? updatedPrompt : p));
-    setPrompts(updated);
-    saveStoredPrompts(updated);
-    syncPromptToFirestore(updatedPrompt);
-
-    sendRealtimeSync('PROMPT_UPDATED', { prompt: updatedPrompt, title: updatedPrompt.title });
-
-    const newHist = addHistoryEntry(
+    setPrompts((prev) => prev.map((p) => (p.id === updatedPrompt.id ? updatedPrompt : p)));
+    void syncPromptToFirestore(userId, updatedPrompt);
+    sendRealtimeSync('PROMPT_UPDATED', { promptId: updatedPrompt.id, title: updatedPrompt.title });
+    void addHistoryEntryToFirestore(
+      userId,
       updatedPrompt.title,
       'update',
-      `Prompt diperbarui`,
+      'Prompt diperbarui di Firebase Cloud',
       updatedPrompt.id
     );
-    setHistory((prev) => [newHist, ...prev]);
   };
 
   const handleDeletePrompt = (id: string) => {
     const p = prompts.find((item) => item.id === id);
-    const updated = prompts.filter((item) => item.id !== id);
-    setPrompts(updated);
-    saveStoredPrompts(updated);
-    deletePromptFromFirestore(id);
-
+    setPrompts((prev) => prev.filter((item) => item.id !== id));
+    void deletePromptFromFirestore(userId, id);
     sendRealtimeSync('PROMPT_DELETED', { id });
 
     if (p) {
-      const newHist = addHistoryEntry(p.title, 'update', 'Prompt dihapus dari library', id);
-      setHistory((prev) => [newHist, ...prev]);
+      void addHistoryEntryToFirestore(userId, p.title, 'update', 'Prompt dihapus dari library', id);
     }
   };
 
   const handleToggleFavorite = (id: string) => {
-    const updated = prompts.map((p) => (p.id === id ? { ...p, isFavorite: !p.isFavorite } : p));
-    setPrompts(updated);
-    saveStoredPrompts(updated);
-    const target = updated.find((p) => p.id === id);
-    if (target) {
-      syncPromptToFirestore(target);
-    }
-
+    const target = prompts.find((p) => p.id === id);
+    if (!target) return;
+    const nextFav = !target.isFavorite;
+    setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, isFavorite: nextFav } : p)));
+    void togglePromptFavoriteInFirestore(userId, id, nextFav);
     sendRealtimeSync('PROMPT_FAVORITED', { id });
   };
 
   const handleCreateCollection = (newCol: Collection) => {
-    const updated = [newCol, ...collections];
-    setCollections(updated);
-    saveStoredCollections(updated);
-    syncCollectionToFirestore(newCol);
-
-    sendRealtimeSync('COLLECTION_CREATED', { collection: newCol, name: newCol.name });
+    setCollections((prev) => [newCol, ...prev.filter((c) => c.id !== newCol.id)]);
+    void syncCollectionToFirestore(userId, newCol);
+    sendRealtimeSync('COLLECTION_CREATED', { collectionId: newCol.id, name: newCol.name });
   };
 
   const handleDeleteCollection = (colId: string) => {
-    const updated = collections.filter((c) => c.id !== colId);
-    setCollections(updated);
-    saveStoredCollections(updated);
-    deleteCollectionFromFirestore(colId);
-
+    setCollections((prev) => prev.filter((c) => c.id !== colId));
+    void deleteCollectionFromFirestore(userId, colId);
     sendRealtimeSync('COLLECTION_DELETED', { id: colId });
   };
 
   const handleUpdateSettings = (newSettings: UserSettings) => {
     setSettings(newSettings);
-    saveStoredSettings(newSettings);
-    syncSettingsToFirestore(newSettings);
+    setRuntimeCustomApiKeys(newSettings.customKeys);
+    void syncSettingsToFirestore(userId, newSettings);
   };
 
   const handleImportWorkspace = (
@@ -292,14 +296,13 @@ export default function App() {
     importedCollections: Collection[]
   ) => {
     setPrompts(importedPrompts);
-    saveStoredPrompts(importedPrompts);
-    importedPrompts.forEach((p) => syncPromptToFirestore(p));
+    importedPrompts.forEach((p) => void syncPromptToFirestore(userId, p));
 
     if (importedCollections.length > 0) {
       setCollections(importedCollections);
-      saveStoredCollections(importedCollections);
-      importedCollections.forEach((c) => syncCollectionToFirestore(c));
+      importedCollections.forEach((c) => void syncCollectionToFirestore(userId, c));
     }
+    showNotice(`Berhasil mengimpor ${importedPrompts.length} prompt ke Firebase Cloud.`);
   };
 
   const handleRestoreVersion = (log: HistoryLog) => {
@@ -309,7 +312,7 @@ export default function App() {
         setSelectedPrompt(found);
         setIsDetailModalOpen(true);
       } else {
-        alert(`Prompt "${log.promptTitle}" tidak ditemukan di library.`);
+        showNotice(`Prompt "${log.promptTitle}" tidak ditemukan di library.`);
       }
     }
   };
@@ -336,6 +339,13 @@ export default function App() {
     setIsDetailModalOpen(true);
   };
 
+  const handleNavigateToPlaygroundWithPrompt = (promptText?: string) => {
+    if (promptText && promptText.trim()) {
+      setPlaygroundDraftPrompt(promptText);
+    }
+    setCurrentView('playground');
+  };
+
   return (
     <div className="flex h-screen bg-[#FAFAFA] dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans">
       {/* Sidebar */}
@@ -352,7 +362,7 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Top Navigation */}
         <TopNav
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
@@ -366,10 +376,26 @@ export default function App() {
           }
           activeView={currentView}
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+          onOpenLandingPage={() => setShowLandingPage(true)}
         />
 
+        {/* Inline Toast Notification */}
+        {toastMessage && (
+          <div className="fixed top-16 right-4 z-50 max-w-sm px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-800 text-white border border-slate-700 shadow-xl flex items-center gap-2.5 text-xs">
+            <AlertCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="flex-1">{toastMessage}</span>
+            <button
+              type="button"
+              onClick={() => setToastMessage(null)}
+              className="text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* View Router Workspace */}
-        <main className="flex-1 overflow-y-auto bg-[#FAFAFA] dark:bg-slate-950">
+        <main className="flex-1 overflow-y-auto bg-[#FAFAFA] dark:bg-slate-950 pb-20 md:pb-0">
           {currentView === 'dashboard' && (
             <DashboardView
               prompts={prompts}
@@ -386,12 +412,27 @@ export default function App() {
 
           {currentView === 'generate' && (
             <GenerateView
+              userId={userId}
               collections={collections}
               onSavePrompt={handleSavePrompt}
               onOpenScoreModal={handleOpenScoreModal}
               onOpenOptimizerModal={handleOpenOptimizerModal}
               onOpenTranslatorModal={handleOpenTranslatorModal}
+              onNavigateToPlayground={handleNavigateToPlaygroundWithPrompt}
             />
+          )}
+
+          {currentView === 'prd' && (
+            <PRDView
+              userId={userId}
+              collections={collections}
+              onSavePrompt={handleSavePrompt}
+              onNavigateToPlayground={handleNavigateToPlaygroundWithPrompt}
+            />
+          )}
+
+          {currentView === 'media-studio' && (
+            <MediaStudioView userId={userId} prompts={prompts} settings={settings} />
           )}
 
           {currentView === 'library' && (
@@ -411,7 +452,7 @@ export default function App() {
             <CollectionsView
               collections={collections}
               prompts={prompts}
-              onSelectCollection={(colId) => {
+              onSelectCollection={() => {
                 setCurrentView('library');
               }}
               onOpenNewCollectionModal={() => setIsNewCollectionModalOpen(true)}
@@ -419,7 +460,9 @@ export default function App() {
             />
           )}
 
-          {currentView === 'playground' && <PlaygroundView />}
+          {currentView === 'playground' && (
+            <PlaygroundView settings={settings} initialPrompt={playgroundDraftPrompt} />
+          )}
 
           {currentView === 'history' && (
             <HistoryView
@@ -438,7 +481,7 @@ export default function App() {
           )}
 
           {currentView === 'analytics' && (
-            <AnalyticsView prompts={prompts} collections={collections} />
+            <AnalyticsView prompts={prompts} collections={collections} history={history} />
           )}
 
           {currentView === 'settings' && (
@@ -446,6 +489,7 @@ export default function App() {
               settings={settings}
               onUpdateSettings={handleUpdateSettings}
               onOpenExportImportModal={() => setIsExportImportModalOpen(true)}
+              onClearAllWorkspaceData={handleClearAllWorkspaceData}
             />
           )}
         </main>
@@ -514,29 +558,38 @@ export default function App() {
         onOpenTranslatorModal={handleOpenTranslatorModal}
       />
 
-      {/* Floating Gemini AI Co-Pilot Launcher */}
+      {/* Floating AI Assistant Launcher */}
       {!isChatOpen && (
         <button
           onClick={() => setIsChatOpen(true)}
-          className="fixed bottom-4 right-4 sm:bottom-5 sm:right-5 z-40 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold text-xs shadow-xl flex items-center gap-2 hover:scale-105 active:scale-95 transition-all duration-200 group border border-white/20 cursor-pointer"
-          title="Tanya ZetassAI"
+          className="fixed bottom-20 right-4 sm:bottom-5 sm:right-5 z-30 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 font-semibold text-xs shadow-md flex items-center gap-2 transition-colors cursor-pointer"
+          title="Buka ZetassAI Chat"
         >
-          <div className="relative">
-            <Bot className="w-4 h-4 text-white" />
-            <Sparkles className="w-2.5 h-2.5 text-amber-300 absolute -top-1 -right-1.5 animate-pulse" />
-          </div>
-          <span className="font-heading font-bold text-xs">ZetassAI</span>
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          <Bot className="w-4 h-4" />
+          <span className="font-heading text-xs">ZetassAI</span>
         </button>
       )}
 
-      {/* Floating Gemini AI Assistant Chat Drawer */}
+      {/* Floating Multi-AI Assistant Chat Drawer (ZetassAI) */}
       <GeminiChatDrawer
+        userId={userId}
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
+        settings={settings}
+        onUpdateSettings={handleUpdateSettings}
         onApplyPromptToGenerator={() => {
           setCurrentView('generate');
         }}
+      />
+
+      {/* Dedicated Mobile Web Bottom Navigation Bar */}
+      <MobileBottomNav
+        currentView={currentView}
+        onNavigate={setCurrentView}
+        promptCount={prompts.length}
+        favoriteCount={prompts.filter((p) => p.isFavorite).length}
+        collectionCount={collections.length}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
       />
     </div>
   );

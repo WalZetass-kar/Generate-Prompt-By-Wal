@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ShieldCheck, CheckCircle2, AlertTriangle, Lightbulb, RefreshCw } from 'lucide-react';
 import { PromptScoreDetail } from '../../types';
+import { getCustomApiKeys } from '../../lib/storage';
 
 interface PromptScoreModalProps {
   isOpen: boolean;
@@ -49,7 +50,7 @@ export const PromptScoreModal: React.FC<PromptScoreModalProps> = ({
       const res = await fetch('/api/gemini/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ promptText, title }),
+        body: JSON.stringify({ promptText, title, customKeys: getCustomApiKeys() }),
       });
       const data = await res.json();
       if (data.success && data.data) {

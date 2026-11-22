@@ -1,6 +1,8 @@
 export type ViewMode =
   | 'dashboard'
   | 'generate'
+  | 'prd'
+  | 'media-studio'
   | 'library'
   | 'collections'
   | 'playground'
@@ -8,6 +10,22 @@ export type ViewMode =
   | 'favorites'
   | 'analytics'
   | 'settings';
+
+export interface PRDFormState {
+  productTitle: string;
+  tagline: string;
+  category: string;
+  targetAudience: string;
+  problemStatement: string;
+  keyFeatures: string;
+  techStack: string;
+  targetPlatform: string;
+  integrations: string;
+  releasePhase: string;
+  nonFunctionalReqs: string;
+  prdFormat: string;
+  language: string;
+}
 
 export interface PromptVersion {
   id: string;
@@ -30,6 +48,39 @@ export interface PromptScoreDetail {
   weaknesses: string[];
   recommendations: string[];
   checklist: ScoreChecklistItem[];
+}
+
+export interface QualityControlMeta {
+  overallScore: number;
+  rating: string;
+  requirementCoverage: number;
+  clarityScore: number;
+  specificityScore: number;
+  consistencyScore: number;
+  contextAccuracy: number;
+  actionabilityScore: number;
+  testabilityScore: number;
+  completenessScore?: number;
+  constraintsScore?: number;
+  outputDefinitionScore?: number;
+  ambiguityResolutionScore?: number;
+  dimensions?: {
+    clarity: number;
+    completeness: number;
+    specificity: number;
+    consistency: number;
+    context: number;
+    constraints: number;
+    outputDefinition: number;
+    ambiguityResolution: number;
+  };
+  ambiguitiesResolved: string[];
+  assumptions?: string[];
+  clarificationsNeeded?: string[];
+  qualityHighlights: string[];
+  refinementsApplied?: string[];
+  taskCategoryDetected: string;
+  detectedDomain?: string;
 }
 
 export interface PromptItem {
@@ -62,6 +113,7 @@ export interface PromptItem {
   tags: string[];
   score: number | null;
   scoreDetail: PromptScoreDetail | null;
+  qualityControl?: QualityControlMeta | null;
   versions: PromptVersion[];
   createdAt: string;
   updatedAt: string;
@@ -98,6 +150,23 @@ export interface HistoryLog {
   details: string;
 }
 
+export type AIProviderId = 'gemini' | 'openai' | 'anthropic' | 'deepseek' | 'groq' | 'openrouter';
+
+export interface CustomAIKeys {
+  openai?: string;
+  anthropic?: string;
+  deepseek?: string;
+  groq?: string;
+  openrouter?: string;
+  customGemini?: string;
+  openaiModel?: string;
+  anthropicModel?: string;
+  deepseekModel?: string;
+  groqModel?: string;
+  openrouterModel?: string;
+  customBaseUrl?: string;
+}
+
 export interface UserSettings {
   theme: 'light' | 'dark';
   language: 'Indonesian' | 'English';
@@ -106,6 +175,9 @@ export interface UserSettings {
   defaultModel: string;
   wordWrap: boolean;
   apiKey: string;
+  activeProvider?: AIProviderId;
+  botProvider?: AIProviderId;
+  customKeys?: CustomAIKeys;
 }
 
 export interface FormState {
@@ -130,4 +202,71 @@ export interface FormState {
   negativePrompt: string;
   expectedOutput: string;
   reference: string;
+}
+
+export interface GeminiUsageBreakdown {
+  generator: number;
+  chat: number;
+  optimizer: number;
+  wizard: number;
+  prd: number;
+  playground: number;
+  translate: number;
+  score: number;
+  image: number;
+  video: number;
+}
+
+export interface GeneratedImageItem {
+  id: string;
+  prompt: string;
+  enhancedPrompt?: string;
+  negativePrompt?: string;
+  aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
+  stylePreset: string;
+  imageUrl: string;
+  createdAt: string;
+  model: string;
+  isFallback?: boolean;
+  fallbackReason?: string;
+}
+
+export interface GeneratedVideoItem {
+  id: string;
+  prompt: string;
+  enhancedPrompt?: string;
+  cameraMovement?: string;
+  lightingStyle?: string;
+  aspectRatio: '16:9' | '9:16';
+  resolution: '720p' | '1080p';
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  operationName?: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress?: number;
+  statusMessage?: string;
+  createdAt: string;
+  model: string;
+}
+
+export interface GeminiRequestLog {
+  id: string;
+  action: string;
+  model: string;
+  timestamp: string;
+  status: 'success' | 'quota_exceeded' | 'error';
+  tokensEstimated?: number;
+}
+
+export interface GeminiUsageStats {
+  requestsToday: number;
+  dailyLimit: number;
+  remainingRequests: number;
+  percentUsed: number;
+  requestsPerMinute: number;
+  rpmLimit: number;
+  lastResetDate: string;
+  breakdown: GeminiUsageBreakdown;
+  recentLogs: GeminiRequestLog[];
+  quotaAlert80Percent: boolean;
 }

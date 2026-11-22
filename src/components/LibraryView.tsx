@@ -43,6 +43,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [selectedCollection, setSelectedCollection] = useState<string>('All');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [confirmingClear, setConfirmingClear] = useState(false);
 
   const categories = [
     'All',
@@ -96,18 +97,37 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
         <div className="flex items-center gap-2 self-start md:self-auto">
           {prompts.length > 0 && onClearAllPrompts && (
-            <button
-              onClick={() => {
-                if (window.confirm('Apakah Anda yakin ingin menghapus SELURUH PROMPT dari Library dan Database Firestore?')) {
-                  onClearAllPrompts();
-                }
-              }}
-              className="px-3.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/50 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Hapus Semua Prompt dari Library"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Hapus Semua Library</span>
-            </button>
+            confirmingClear ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClearAllPrompts();
+                    setConfirmingClear(false);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Ya, Hapus Semua
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingClear(false)}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-medium transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingClear(true)}
+                className="px-3.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/50 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Hapus Semua Prompt dari Library"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Kosongkan Library</span>
+              </button>
+            )
           )}
 
           {/* View Mode Toggle */}

@@ -1,8 +1,385 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Pillar 0: Global default-deny safety net
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function userProfileExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function isOptStr(val, maxLen) {
+      return val == null || (val is string && val.size() <= maxLen);
+    }
+
+    function isBoundedString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isStringList(val, maxLen) {
+      return val is list && val.size() <= maxLen && (val.size() == 0 || val[0] is string);
+    }
+
+    // --- Validation Blueprints (Anti-Update-Gap & Set-Optimized) ---
+    function isValidUserProfile(data, userId) {
+      let keys = data.keys().toSet();
+      return keys.hasAll(['uid', 'email', 'displayName', 'photoURL', 'seeded', 'createdAt', 'updatedAt'])
+        && keys.hasOnly(['uid', 'email', 'displayName', 'photoURL', 'seeded', 'createdAt', 'updatedAt'])
+        && data.uid == request.auth.uid
+        && data.uid == userId
+        && isValidId(data.uid)
+        && isBoundedString(data.email, 0, 256)
+        && isBoundedString(data.displayName, 0, 128)
+        && isBoundedString(data.photoURL, 0, 1024)
+        && data.seeded is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPromptMeta(data) {
+      return isOptStr(data.get('subCategory', ''), 100)
+        && isOptStr(data.get('aiModel', ''), 120)
+        && isOptStr(data.get('language', ''), 60)
+        && isOptStr(data.get('programmingLanguage', ''), 120)
+        && isOptStr(data.get('framework', ''), 120)
+        && isOptStr(data.get('database', ''), 120)
+        && isOptStr(data.get('platform', ''), 160)
+        && isOptStr(data.get('stylePrompt', ''), 160)
+        && isOptStr(data.get('designTheme', ''), 160)
+        && isOptStr(data.get('tone', ''), 120)
+        && isOptStr(data.get('outputLanguage', ''), 60)
+        && isOptStr(data.get('creativity', ''), 80)
+        && isOptStr(data.get('length', ''), 120)
+        && isOptStr(data.get('targetAudience', ''), 240);
+    }
+
+    function isValidPromptBody(data) {
+      return isOptStr(data.get('description', ''), 4000)
+        && isOptStr(data.get('additionalReqs', ''), 4000)
+        && isOptStr(data.get('negativePrompt', ''), 2000)
+        && isOptStr(data.get('expectedOutput', ''), 3000)
+        && isOptStr(data.get('reference', ''), 4000)
+        && isOptStr(data.get('collectionId', null), 128)
+        && isBoundedString(data.content, 1, 120000);
+    }
+
+    function isValidPrompt(data, userId, promptId) {
+      let keys = data.keys().toSet();
+      return keys.hasAll([
+          'id', 'ownerId', 'title', 'category', 'content',
+          'isFavorite', 'isPinned', 'tags', 'versions',
+          'createdAt', 'updatedAt', 'serverCreatedAt', 'serverUpdatedAt'
+        ])
+        && keys.hasOnly([
+          'id', 'ownerId', 'title', 'category', 'subCategory', 'aiModel', 'language',
+          'programmingLanguage', 'framework', 'database', 'platform', 'stylePrompt',
+          'designTheme', 'tone', 'outputLanguage', 'creativity', 'length', 'targetAudience',
+          'description', 'additionalReqs', 'negativePrompt', 'expectedOutput', 'reference',
+          'content', 'isFavorite', 'isPinned', 'collectionId', 'tags', 'score',
+          'scoreDetail', 'qualityControl', 'versions',
+          'createdAt', 'updatedAt', 'serverCreatedAt', 'serverUpdatedAt'
+        ])
+        && data.id == promptId
+        && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && data.ownerId == userId
+        && isBoundedString(data.title, 1, 300)
+        && isBoundedString(data.category, 0, 100)
+        && isValidPromptMeta(data)
+        && isValidPromptBody(data)
+        && data.isFavorite is bool
+        && data.isPinned is bool
+        && isStringList(data.tags, 20)
+        && (data.get('score', null) == null || data.score is int || data.score is float)
+        && (data.get('scoreDetail', null) == null || data.scoreDetail is map)
+        && (data.get('qualityControl', null) == null || data.qualityControl is map)
+        && data.versions is list
+        && data.versions.size() <= 30
+        && (data.versions.size() == 0 || data.versions[0] is map)
+        && isBoundedString(data.createdAt, 1, 64)
+        && isBoundedString(data.updatedAt, 1, 64)
+        && data.serverCreatedAt is timestamp
+        && data.serverUpdatedAt is timestamp;
+    }
+
+    function isValidCollection(data, userId, collectionId) {
+      let keys = data.keys().toSet();
+      return keys.hasAll([
+          'id', 'ownerId', 'name', 'description', 'color', 'iconName',
+          'createdAt', 'serverCreatedAt', 'serverUpdatedAt'
+        ])
+        && keys.hasOnly([
+          'id', 'ownerId', 'name', 'description', 'color', 'iconName',
+          'createdAt', 'serverCreatedAt', 'serverUpdatedAt'
+        ])
+        && data.id == collectionId
+        && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && data.ownerId == userId
+        && isBoundedString(data.name, 1, 120)
+        && isBoundedString(data.description, 0, 500)
+        && isBoundedString(data.color, 0, 64)
+        && isBoundedString(data.iconName, 0, 64)
+        && isBoundedString(data.createdAt, 1, 64)
+        && data.serverCreatedAt is timestamp
+        && data.serverUpdatedAt is timestamp;
+    }
+
+    function isValidHistoryLog(data, userId, historyId) {
+      let keys = data.keys().toSet();
+      return keys.hasAll([
+          'id', 'ownerId', 'promptTitle', 'action', 'timestamp', 'details', 'serverCreatedAt'
+        ])
+        && keys.hasOnly([
+          'id', 'ownerId', 'promptId', 'promptTitle', 'action', 'timestamp', 'details', 'serverCreatedAt'
+        ])
+        && data.id == historyId
+        && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && data.ownerId == userId
+        && isOptStr(data.get('promptId', null), 128)
+        && isBoundedString(data.promptTitle, 0, 300)
+        && data.action in ['create', 'update', 'optimize', 'translate', 'restore']
+        && isBoundedString(data.timestamp, 1, 64)
+        && isBoundedString(data.details, 0, 1000)
+        && data.serverCreatedAt is timestamp;
+    }
+
+    function isValidWorkspaceDoc(data, userId, docId) {
+      let keys = data.keys().toSet();
+      return docId in ['settings', 'generator_draft', 'prd_draft', 'chat_preferences']
+        && keys.hasAll(['docType', 'ownerId', 'payload', 'createdAt', 'updatedAt'])
+        && keys.hasOnly(['docType', 'ownerId', 'payload', 'createdAt', 'updatedAt'])
+        && data.docType == docId
+        && data.ownerId == request.auth.uid
+        && data.ownerId == userId
+        && data.payload is map
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMediaAsset(data, userId, mediaId) {
+      let keys = data.keys().toSet();
+      return keys.hasAll([
+          'id', 'ownerId', 'mediaType', 'prompt', 'aspectRatio', 'model',
+          'createdAt', 'serverCreatedAt', 'serverUpdatedAt'
+        ])
+        && keys.hasOnly([
+          'id', 'ownerId', 'mediaType', 'prompt', 'enhancedPrompt', 'negativePrompt',
+          'aspectRatio', 'stylePreset', 'cameraMovement', 'lightingStyle', 'resolution',
+          'mediaUrl', 'thumbnailUrl', 'operationName', 'status', 'progress', 'statusMessage',
+          'isFallback', 'fallbackReason', 'model', 'createdAt', 'serverCreatedAt', 'serverUpdatedAt'
+        ])
+        && data.id == mediaId
+        && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && data.ownerId == userId
+        && data.mediaType in ['image', 'video']
+        && isBoundedString(data.prompt, 1, 4000)
+        && isOptStr(data.get('enhancedPrompt', ''), 6000)
+        && isOptStr(data.get('negativePrompt', ''), 2000)
+        && isBoundedString(data.aspectRatio, 1, 16)
+        && isOptStr(data.get('stylePreset', ''), 120)
+        && isOptStr(data.get('cameraMovement', ''), 200)
+        && isOptStr(data.get('lightingStyle', ''), 200)
+        && isOptStr(data.get('resolution', ''), 16)
+        && isOptStr(data.get('mediaUrl', ''), 600000)
+        && isOptStr(data.get('thumbnailUrl', ''), 200000)
+        && isOptStr(data.get('operationName', ''), 300)
+        && isOptStr(data.get('status', ''), 32)
+        && (data.get('progress', null) == null || data.progress is int || data.progress is float)
+        && isOptStr(data.get('statusMessage', ''), 500)
+        && (data.get('isFallback', null) == null || data.isFallback is bool)
+        && isOptStr(data.get('fallbackReason', ''), 500)
+        && isBoundedString(data.model, 1, 120)
+        && isBoundedString(data.createdAt, 1, 64)
+        && data.serverCreatedAt is timestamp
+        && data.serverUpdatedAt is timestamp;
+    }
+
+    // --- User Profile Document (PII Isolated to Owner Only) ---
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+      allow create: if isOwner(userId)
+        && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isOwner(userId)
+        && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'photoURL', 'seeded', 'updatedAt']);
+      allow delete: if false;
+
+      // --- User Prompts Subcollection ---
+      match /prompts/{promptId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(promptId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(promptId)
+          && isValidPrompt(incoming(), userId, promptId)
+          && incoming().serverCreatedAt == request.time
+          && incoming().serverUpdatedAt == request.time
+          && userProfileExists(userId);
+        allow update: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(promptId)
+          && isValidPrompt(incoming(), userId, promptId)
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().serverCreatedAt == existing().serverCreatedAt
+          && incoming().serverUpdatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'category', 'subCategory', 'aiModel', 'language',
+            'programmingLanguage', 'framework', 'database', 'platform', 'stylePrompt',
+            'designTheme', 'tone', 'outputLanguage', 'creativity', 'length', 'targetAudience',
+            'description', 'additionalReqs', 'negativePrompt', 'expectedOutput', 'reference',
+            'content', 'isFavorite', 'isPinned', 'collectionId', 'tags', 'score',
+            'scoreDetail', 'qualityControl', 'versions', 'updatedAt', 'serverUpdatedAt'
+          ])
+          && userProfileExists(userId);
+        allow delete: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(promptId)
+          && userProfileExists(userId);
+      }
+
+      // --- User Collections Subcollection ---
+      match /collections/{collectionId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(collectionId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(collectionId)
+          && isValidCollection(incoming(), userId, collectionId)
+          && incoming().serverCreatedAt == request.time
+          && incoming().serverUpdatedAt == request.time
+          && userProfileExists(userId);
+        allow update: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(collectionId)
+          && isValidCollection(incoming(), userId, collectionId)
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().serverCreatedAt == existing().serverCreatedAt
+          && incoming().serverUpdatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'color', 'iconName', 'serverUpdatedAt'])
+          && userProfileExists(userId);
+        allow delete: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(collectionId)
+          && userProfileExists(userId);
+      }
+
+      // --- User History Subcollection ---
+      match /history/{historyId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(historyId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(historyId)
+          && isValidHistoryLog(incoming(), userId, historyId)
+          && incoming().serverCreatedAt == request.time
+          && userProfileExists(userId);
+        allow update: if false;
+        allow delete: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(historyId)
+          && userProfileExists(userId);
+      }
+
+      // --- User Workspace State (Settings, Generator Draft, PRD Draft, Chat Prefs) ---
+      match /workspace/{docId} {
+        allow get: if isOwner(userId)
+          && isValidId(userId)
+          && docId in ['settings', 'generator_draft', 'prd_draft', 'chat_preferences'];
+        allow list: if false;
+        allow create: if isOwner(userId)
+          && isValidId(userId)
+          && isValidWorkspaceDoc(incoming(), userId, docId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && userProfileExists(userId);
+        allow update: if isOwner(userId)
+          && isValidId(userId)
+          && isValidWorkspaceDoc(incoming(), userId, docId)
+          && incoming().docType == existing().docType
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['payload', 'updatedAt'])
+          && userProfileExists(userId);
+        allow delete: if isOwner(userId)
+          && isValidId(userId)
+          && docId in ['generator_draft', 'prd_draft', 'chat_preferences']
+          && userProfileExists(userId);
+      }
+
+      // --- User Media Studio Assets ---
+      match /media/{mediaId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(mediaId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(mediaId)
+          && isValidMediaAsset(incoming(), userId, mediaId)
+          && incoming().serverCreatedAt == request.time
+          && incoming().serverUpdatedAt == request.time
+          && userProfileExists(userId);
+        allow update: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(mediaId)
+          && isValidMediaAsset(incoming(), userId, mediaId)
+          && incoming().id == existing().id
+          && incoming().ownerId == existing().ownerId
+          && incoming().mediaType == existing().mediaType
+          && incoming().createdAt == existing().createdAt
+          && incoming().serverCreatedAt == existing().serverCreatedAt
+          && incoming().serverUpdatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'mediaUrl', 'thumbnailUrl', 'status', 'progress', 'statusMessage',
+            'isFallback', 'fallbackReason', 'serverUpdatedAt'
+          ])
+          && userProfileExists(userId);
+        allow delete: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(mediaId)
+          && userProfileExists(userId);
+      }
     }
   }
 }
